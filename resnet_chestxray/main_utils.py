@@ -30,6 +30,7 @@ from torch.utils.data import DataLoader
 
 from .model import build_resnet256_6_2_1, build_resnet512_6_2_1
 from .model import build_resnet1024_7_2_1, build_resnet2048_7_2_1
+from .model import build_multiclass
 from .model_utils import CXRImageDataset, convert_to_onehot
 import eval_metrics
 
@@ -80,6 +81,8 @@ def build_model(model_name, checkpoint_path=None, output_channels=4):
 			model = build_resnet1024_7_2_1(output_channels=output_channels)
 		if model_name == 'resnet2048_7_2_1':
 			model = build_resnet2048_7_2_1(output_channels=output_channels)
+		if model_name == 'multiclass':
+			model = build_multiclass(output_channels=output_channels)
 	else:
 		if model_name == 'resnet256_6_2_1':
 			model = build_resnet256_6_2_1(pretrained=True,
@@ -97,6 +100,10 @@ def build_model(model_name, checkpoint_path=None, output_channels=4):
 			model = build_resnet2048_7_2_1(pretrained=True,
 										   pretrained_model_path=checkpoint_path,
 										   output_channels=output_channels)	
+		if model_name == 'multiclass':
+			model = build_multiclass(pretrained=True,
+									 pretrained_model_path=checkpoint_path,
+									 output_channels=output_channels)
 	return model
 
 
@@ -125,7 +132,7 @@ class ModelManager:
 		print('***** Instantiate a data loader *****')
 		dataset = build_training_dataset(data_dir=args.data_dir,
 										 img_size=self.img_size,
-										 dataset_metadata=args.dataset_metadata,
+										 dataset_metadata=('../data/training_chexpert.csv' if args.model_name == 'multiclass' else args.dataset_metadata),
 										 label_key=args.label_key)
 		data_loader = DataLoader(dataset, batch_size=args.batch_size,
 								 shuffle=True, num_workers=8,
@@ -136,7 +143,9 @@ class ModelManager:
 		Create an instance of loss
 		'''
 		print('***** Instantiate the training loss *****')
-		if args.loss_method == 'CrossEntropyLoss':
+		if args.model_name == 'multiclass':
+			loss_criterion = CrossEntropyLoss().to(device)
+		elif args.loss_method == 'CrossEntropyLoss':
 			loss_criterion = CrossEntropyLoss().to(device)
 		elif args.loss_method == 'BCEWithLogitsLoss':
 			loss_criterion = BCEWithLogitsLoss().to(device)
