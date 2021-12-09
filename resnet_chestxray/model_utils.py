@@ -98,7 +98,7 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        if self.label_key == 'multiclass':
+        if self.label_key == 'Multiclass':
             chexpert_keys = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Enlarged Cardiomediastinum', 'Fracture',\
 				 'Lung Lesion', 'Lung Opacity', 'No Finding', 'Pleural Effusion', 'Pleural Other', 'Pneumonia',\
 				 'Pneumothorax', 'Support Devices']
@@ -120,7 +120,7 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         return img, label, img_id
 
     def select_valid_labels(self):
-        self.dataset_metadata = self.dataset_metadata[self.dataset_metadata[self.label_key]>=0]
+        self.dataset_metadata = self.dataset_metadata[self.dataset_metadata[self.label_key]>=0] # ignore labels -1.0 and -2.0
         self.dataset_metadata = self.dataset_metadata.reset_index(drop=True)
         self.image_ids = self.dataset_metadata[self.data_key]
 
