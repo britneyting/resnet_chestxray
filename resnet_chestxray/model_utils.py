@@ -98,7 +98,13 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        img_id, label = self.dataset_metadata.loc[idx, [self.data_key, self.label_key]]
+        if self.label_key == 'multiclass':
+            chexpert_keys = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Enlarged Cardiomediastinum', 'Fracture',\
+				 'Lung Lesion', 'Lung Opacity', 'No Finding', 'Pleural Effusion', 'Pleural Other', 'Pneumonia',\
+				 'Pneumothorax', 'Support Devices']
+            img_id, label = self.dataset_metadata.loc[idx, [self.data_key] + chexpert_keys]
+        else:
+            img_id, label = self.dataset_metadata.loc[idx, [self.data_key, self.label_key]]
 
         if self.cache:
             img = self.images[str(idx)]

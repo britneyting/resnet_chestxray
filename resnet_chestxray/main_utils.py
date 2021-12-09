@@ -133,7 +133,7 @@ class ModelManager:
 		dataset = build_training_dataset(data_dir=args.data_dir,
 										 img_size=self.img_size,
 										 dataset_metadata=('../data/training_chexpert.csv' if args.model_name == 'multiclass' else args.dataset_metadata),
-										 label_key=args.label_key)
+										 label_key='multiclass' if args.model_name == 'multiclass' else args.label_key)
 		data_loader = DataLoader(dataset, batch_size=args.batch_size,
 								 shuffle=True, num_workers=8,
 								 pin_memory=True)
