@@ -816,8 +816,8 @@ class ResNet256_6_2_1(nn.Module):
 
         return model
 
-class Multilabel(nn.Module):
-    """ A multilabel model
+class Multiclass(nn.Module):
+    """ A multiclass model
     """
 
     def __init__(self, block, blocks_per_layers, output_channels=14, 
@@ -831,9 +831,9 @@ class Multilabel(nn.Module):
             "layer5" batch_sizex8x8x192           ->
             "layer6" batch_sizex4x4x192           ->
             average pooling batch_sizex2x2x192    ->
-            fc layer batch_sizexoutput_channelsx14
+            fc layer batch_sizexoutput_channelsx1
         """
-        super(Multilabel, self).__init__()
+        super(ResNet256_6_2_1, self).__init__()
 
         self._norm_layer = norm_layer
 
@@ -853,7 +853,7 @@ class Multilabel(nn.Module):
         self.layer6 = self._make_layer(block, 192, blocks_per_layers[5], stride=2)
         self.avgpool = nn.AvgPool2d((2, 2))
         self.fc1 = nn.Linear(768, output_channels)
-        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=1)
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -905,7 +905,7 @@ class Multilabel(nn.Module):
         x = self.avgpool(x)
         z = torch.flatten(x, 1)
         y_logits = self.fc1(z)
-        y = self.sigmoid(y_logits)
+        y = self.softmax(y_logits)
 
         return y, z, y_logits
 
@@ -1034,10 +1034,10 @@ def build_resnet256_6_2_1(block=BasicBlock, blocks_per_layers=[2, 2, 2, 2, 2, 2]
                                       output_channels, **kwargs)
     return model
 
-def build_multilabel(block=BasicBlock, blocks_per_layers=[2, 2, 2, 2, 2, 2], 
+def build_multiclass(block=BasicBlock, blocks_per_layers=[2, 2, 2, 2, 2, 2], 
                       pretrained=False, pretrained_model_path=None, output_channels=14, **kwargs):
     '''14 output channels for 14 classes'''
-    model = Multilabel(block, blocks_per_layers, output_channels=output_channels, **kwargs)
+    model = Multiclass(block, blocks_per_layers, output_channels=output_channels, **kwargs)
     if pretrained:
         model = model.from_pretrained(pretrained_model_path, block, blocks_per_layers,
                                       output_channels, **kwargs)

@@ -36,7 +36,8 @@ parser.add_argument('--dataset_metadata', type=str,
 					default=os.path.join(current_dir, 'data/test_chexpert.csv'),
 					help='The metadata for the model training ')
 parser.add_argument('--save_dir', type=str,
-					default='/data/vision/polina/scratch/bting/chestxray/training/')
+					default='/data/vision/polina/scratch/ruizhi/chestxray/experiments/supervised_image/'\
+					'tmp_postmiccai_v2/')
 parser.add_argument('--checkpoint_name', type=str,
 					default='pytorch_model_epoch300.bin')
 
