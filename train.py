@@ -39,8 +39,7 @@ parser.add_argument('--dataset_metadata', type=str,
 					default=os.path.join(current_dir, 'data/training_chexpert.csv'),
 					help='The metadata for the model training ')
 parser.add_argument('--save_dir', type=str,
-					default='/data/vision/polina/scratch/ruizhi/chestxray/experiments/'\
-					'supervised_image/tmp_postmiccai_v2/')
+					default='/data/vision/polina/scratch/bting/chestxray/training/')
 parser.add_argument('--label_key', type=str,
                     default='Edema',
                     help='The supervised task (the key of the corresponding label column)')

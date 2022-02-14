@@ -27,8 +27,7 @@ parser.add_argument('--model_architecture', default='resnet256_6_2_1', type=str,
                     help='Neural network architecture to be used')
 
 parser.add_argument('--save_dir', type=str,
-					default='/data/vision/polina/scratch/ruizhi/chestxray/experiments/supervised_image/'\
-					'tmp_postmiccai_v2/')
+					default='/data/vision/polina/projects/chestxray/bting/')
 parser.add_argument('--checkpoint_name', type=str,
 					default='pytorch_model_epoch300.bin')
 
