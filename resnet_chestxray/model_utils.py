@@ -84,7 +84,12 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         self.data_dir = data_dir
         self.dataset_metadata = pd.read_csv(dataset_metadata)
         self.data_key = data_key
-        self.label_key = label_key
+        if label_key == 'Multilabel':
+            self.label_key = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'EnlargedCardiomediastinum', 'Fracture',\
+                                 'LungLesion', 'LungOpacity', 'NoFinding', 'PleuralEffusion', 'PleuralOther', 'Pneumonia',\
+                                 'Pneumothorax', 'SupportDevices']
+        else:
+            self.label_key = [label_key]
         self.transform = transform
         self.image_ids = self.dataset_metadata[data_key]
         self.select_valid_labels()
@@ -98,15 +103,15 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        if self.label_key == 'Multiclass':
-            chexpert_keys = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', 'Enlarged Cardiomediastinum', 'Fracture',\
-				 'Lung Lesion', 'Lung Opacity', 'No Finding', 'Pleural Effusion', 'Pleural Other', 'Pneumonia',\
-				 'Pneumothorax', 'Support Devices']
-            img_id, label = self.dataset_metadata.loc[idx, [self.data_key] + chexpert_keys]
-        else:
-            img_id, label = self.dataset_metadata.loc[idx, [self.data_key, self.label_key]]
+        #img_id, label = self.dataset_metadata.loc[idx, [self.data_key] + self.label_key] # this does not work when there are 15 values to unpack for Multilabel, delete later
+        values = self.dataset_metadata.loc[idx, [self.data_key] + self.label_key]
+        img_id = values[0]
+        labels = values[1:].to_numpy()
+        # labels = np.array(value for value in values[1:].to_numpy())
+        labels = np.array([value for value in labels])
 
         if self.cache:
+            print("cache exists, finding image here")
             img = self.images[str(idx)]
         else:
             png_path = os.path.join(self.data_dir, f'{img_id}.png')
@@ -117,16 +122,20 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
 
         img = np.expand_dims(img, axis=0)
 
-        return img, label, img_id
+        return img, labels, img_id
 
     def select_valid_labels(self):
-        self.dataset_metadata = self.dataset_metadata[self.dataset_metadata[self.label_key]>=0] # ignore labels -1.0 and -2.0
+        # self.dataset_metadata = self.dataset_metadata[self.dataset_metadata[self.label_key]>=0] # ignore labels -1.0 and -2.0 for single class training
+        self.dataset_metadata[self.label_key] = self.dataset_metadata[self.label_key][self.dataset_metadata[self.label_key]>=0] # ignore labels -1.0 and -2.0 for multilabel classificaition
+        self.dataset_metadata = self.dataset_metadata.fillna(0) # penalize -1.0 and -2.0 labels by setting them all to 0
         self.dataset_metadata = self.dataset_metadata.reset_index(drop=True)
         self.image_ids = self.dataset_metadata[self.data_key]
 
     def cache_dataset(self):
         for idx in range(self.__len__()):
-            img_id, label = self.dataset_metadata.loc[idx, [self.data_key, self.label_key]]
+            #img_id, label = self.dataset_metadata.loc[idx, [self.data_key] + [self.label_key]]
+            values = self.dataset_metadata.loc[idx, [self.data_key] + self.label_key]
+            imge_id = values=[0]
             png_path = os.path.join(self.data_dir, f'{img_id}.png')
             img = cv2.imread(png_path, cv2.IMREAD_ANYDEPTH)
             if idx == 0:

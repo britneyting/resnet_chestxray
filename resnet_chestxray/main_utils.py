@@ -30,7 +30,7 @@ from torch.utils.data import DataLoader
 
 from .model import build_resnet256_6_2_1, build_resnet512_6_2_1
 from .model import build_resnet1024_7_2_1, build_resnet2048_7_2_1
-from .model import build_multiclass
+from .model import build_multilabel
 from .model_utils import CXRImageDataset, convert_to_onehot
 import eval_metrics
 
@@ -81,8 +81,8 @@ def build_model(model_name, checkpoint_path=None, output_channels=4):
 			model = build_resnet1024_7_2_1(output_channels=output_channels)
 		if model_name == 'resnet2048_7_2_1':
 			model = build_resnet2048_7_2_1(output_channels=output_channels)
-		if model_name == 'multiclass':
-			model = build_multiclass(output_channels=output_channels)
+		if model_name == 'multilabel':
+			model = build_multilabel(output_channels=output_channels)
 	else:
 		if model_name == 'resnet256_6_2_1':
 			model = build_resnet256_6_2_1(pretrained=True,
@@ -100,8 +100,8 @@ def build_model(model_name, checkpoint_path=None, output_channels=4):
 			model = build_resnet2048_7_2_1(pretrained=True,
 										   pretrained_model_path=checkpoint_path,
 										   output_channels=output_channels)	
-		if model_name == 'multiclass':
-			model = build_multiclass(pretrained=True,
+		if model_name == 'multilabel':
+			model = build_multilabel(pretrained=True,
 									 pretrained_model_path=checkpoint_path,
 									 output_channels=output_channels)
 	return model
@@ -132,8 +132,8 @@ class ModelManager:
 		print('***** Instantiate a data loader *****')
 		dataset = build_training_dataset(data_dir=args.data_dir,
 										 img_size=self.img_size,
-										 dataset_metadata=('../data/training_chexpert.csv' if args.model_name == 'multiclass' else args.dataset_metadata),
-										 label_key='Multiclass' if args.model_name == 'multiclass' else args.label_key)
+										 dataset_metadata=args.dataset_metadata,
+										 label_key='Multilabel' if self.model_name == 'multilabel' else args.label_key)
 		data_loader = DataLoader(dataset, batch_size=args.batch_size,
 								 shuffle=True, num_workers=8,
 								 pin_memory=True)
@@ -143,8 +143,8 @@ class ModelManager:
 		Create an instance of loss
 		'''
 		print('***** Instantiate the training loss *****')
-		if args.model_name == 'multiclass':
-			loss_criterion = CrossEntropyLoss().to(device)
+		if self.model_name == 'multilabel':
+			loss_criterion = BCEWithLogitsLoss().to(device)
 		elif args.loss_method == 'CrossEntropyLoss':
 			loss_criterion = CrossEntropyLoss().to(device)
 		elif args.loss_method == 'BCEWithLogitsLoss':
@@ -168,7 +168,7 @@ class ModelManager:
 			epoch_loss = 0
 			epoch_iterator = tqdm(data_loader, desc="Iteration")
 			for i, batch in enumerate(epoch_iterator, 0):
-				# Parse the batch 
+				# Parse the batch
 				images, labels, image_ids = batch
 				images = images.to(device, non_blocking=True)
 				labels = labels.to(device, non_blocking=True)
@@ -185,7 +185,7 @@ class ModelManager:
 				
 				# pred_logits[labels<0] = 0
 				# labels[labels<0] = 0.5
-				loss = loss_criterion(pred_logits, labels)
+				loss = loss_criterion(pred_logits, labels) # NOTE: logits are used instead of the resulting y prediction because our losses_criterions have built-in softmax/sigmoid
 				loss.backward()
 				optimizer.step()
 
@@ -460,45 +460,45 @@ def train(args, device, model):
 	running_loss = 0
 	logger.info("***** Training the model *****")
 	for epoch in train_iterator:
-	    logger.info("  Starting a new epoch: %d", epoch + 1)
-	    epoch_iterator = tqdm(data_loader, desc="Iteration")
-	    tr_loss = 0
-	    for i, batch in enumerate(epoch_iterator, 0):
+		logger.info("  Starting a new epoch: %d", epoch + 1)
+		epoch_iterator = tqdm(data_loader, desc="Iteration")
+		tr_loss = 0
+		for i, batch in enumerate(epoch_iterator, 0):
 	        # Get the batch 
-	        batch = tuple(t.to(device, non_blocking=True) for t in batch)
-	        inputs, labels, labels_raw = batch
+			batch = tuple(t.to(device, non_blocking=True) for t in batch)
+			inputs, labels, labels_raw = batch
 
-	        # Zero the parameter gradients
-	        optimizer.zero_grad()
+			# Zero the parameter gradients
+			optimizer.zero_grad()
 
-	        # Forward + backward + optimize
-	        outputs = model(inputs)
-	        loss = loss_criterion(outputs[-1], labels_raw)
-	        loss.backward()
-	        optimizer.step()
+			# Forward + backward + optimize
+			outputs = model(inputs)
+			loss = loss_criterion(outputs[-1], labels_raw)
+			loss.backward()
+			optimizer.step()
 
-	        # Print and record statistics
-	        running_loss += loss.item()
-	        tr_loss += loss.item()
-	        global_step += 1
-	        if global_step % args.logging_steps == 0:
-	            #grid = torchvision.utils.make_grid(inputs)
-	            #tsbd_writer.add_image('images', grid, global_step)
-	            tsbd_writer.add_scalar('loss/train', 
-	                                   running_loss / (args.logging_steps*args.batch_size), 
-	                                   global_step)
-	            tsbd_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
-	            logger.info("  [%d, %5d, %5d] learning rate = %f"%\
-	            	(epoch + 1, i + 1, global_step, optimizer.param_groups[0]['lr']))
-	            logger.info("  [%d, %5d, %5d] loss = %.5f"%\
-	            	(epoch + 1, i + 1, global_step, running_loss / (args.logging_steps*args.batch_size)))        
-	            running_loss = 0
-	    logger.info("  Finished an epoch: %d", epoch + 1)
-	    logger.info("  Training loss of epoch %d = %.5f"%\
-	    	(epoch+1, tr_loss / (len(cxr_dataset)*args.batch_size)))
-	    model.save_pretrained(args.checkpoints_dir, epoch=epoch + 1)
-	    if args.scheduler == 'ReduceLROnPlateau':
-	    	scheduler.step(tr_loss)
+			# Print and record statistics
+			running_loss += loss.item()
+			tr_loss += loss.item()
+			global_step += 1
+			if global_step % args.logging_steps == 0:
+				#grid = torchvision.utils.make_grid(inputs)
+				#tsbd_writer.add_image('images', grid, global_step)
+				tsbd_writer.add_scalar('loss/train', 
+									running_loss / (args.logging_steps*args.batch_size), 
+									global_step)
+				tsbd_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
+				logger.info("  [%d, %5d, %5d] learning rate = %f"%\
+					(epoch + 1, i + 1, global_step, optimizer.param_groups[0]['lr']))
+				logger.info("  [%d, %5d, %5d] loss = %.5f"%\
+					(epoch + 1, i + 1, global_step, running_loss / (args.logging_steps*args.batch_size)))        
+				running_loss = 0
+		logger.info("  Finished an epoch: %d", epoch + 1)
+		logger.info("  Training loss of epoch %d = %.5f"%\
+			(epoch+1, tr_loss / (len(cxr_dataset)*args.batch_size)))
+		model.save_pretrained(args.checkpoints_dir, epoch=epoch + 1)
+		if args.scheduler == 'ReduceLROnPlateau':
+			scheduler.step(tr_loss)
 
 	tsbd_writer.close()
 
